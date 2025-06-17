@@ -33,7 +33,19 @@ def save_json(filename, data):
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
     online_ping_task.start()
-
+# ------------------- رتب تلقائيه ------------------------
+@bot.event
+async def on_member_join(member):
+    role_id = 1384445062183780352  # ID الرتبة
+    role = member.guild.get_role(role_id)
+    if role:
+        try:
+            await member.add_roles(role)
+            print(f"🎉 تم إعطاء الرتبة {role.name} للعضو {member.name}")
+        except Exception as e:
+            print(f"❌ خطأ في إعطاء الرتبة: {e}")
+    else:
+        print("⚠️ لم يتم العثور على الرتبة")
 # ------------------- online_ping --------------------
 online_watchlist = {}  # { user_id: last_status }
 
