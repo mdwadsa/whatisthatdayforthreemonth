@@ -391,10 +391,12 @@ async def movie(ctx, *, name: str):
 @bot.command(name="Series")
 async def series(ctx, *, name: str):
     formatted_name = name.lower().replace("_", "-")
-    search_url = f"https://www.faselhds.care/seasons/مسلسل-{formatted_name}"
+ url1 = f"https://www.faselhds.care/seasons/series-{formatted_name}"
+    url2 = f"https://www.faselhds.care/seasons/مسلسل-{formatted_name}"
+
     embed = discord.Embed(
-        title="📺 رابط المسلسل",
-        description=f"📺 اسم المسلسل: `{name}`\n🔗 [مشاهدة المواسم]({search_url})",
+        title=f"نتائج بحث عن المسلسل: {series_name}",
+        description=f"[الرابط الأول]({url1})\n[الرابط الثاني]({url2})",
         color=discord.Color.purple()
     )
     await ctx.send(embed=embed)
