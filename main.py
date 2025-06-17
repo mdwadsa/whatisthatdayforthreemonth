@@ -170,7 +170,34 @@ async def show(ctx, member: discord.Member):
 async def مسح(ctx, num: int):
     await ctx.channel.purge(limit=num)
     await ctx.send(f"✅ تم مسح {num} رسالة.", delete_after=5)
+# -------------------- رتب مخفيه -------------------------
+@bot.command()
+async def generate(ctx, role: discord.Role, code: str):
+    if ctx.author.id != 948531215252742184:
+        await ctx.send("❌ هذا الأمر مخصص لصاحب البوت فقط.")
+        return
+    if code in codes:
+        await ctx.send("⚠️ الرمز موجود مسبقاً.")
+        return
+    codes[code] = role.id
+    save_codes()
+    await ctx.send(f"✅ تم إنشاء الرمز `{code}` للرتبة **{role.name}**.")
 
+@bot.command()
+async def redeem(ctx, code: str):
+    if code not in codes:
+        await ctx.send("❌ الرمز غير صالح أو تم استخدامه.")
+        return
+    role_id = codes.pop(code)
+    save_codes()
+
+    role = ctx.guild.get_role(role_id)
+    if not role:
+        await ctx.send("❌ لم يتم العثور على الرتبة.")
+        return
+
+    await ctx.author.add_roles(role)
+    await ctx.send(f"✅ تم إعطاؤك رتبة **{role.name}** بنجاح!")
 # -------------------- نظام التكتات الجديد --------------------
 
 from discord.ui import View, Button, Modal, TextInput
@@ -369,7 +396,7 @@ async def untimeout(ctx, member: discord.Member):
 # --------------------- Shows-------------------------
 @bot.command(name="anime")
 async def anime(ctx, *, name: str):
-    search_url = f"https://witanime.cyou/?search_param=animes&s={name}"
+    search_url = f"https://witanime.cyou/?search_param=animes&s={name.replace(' ', '+')}"
     embed = discord.Embed(
         title="🔎 نتيجة البحث عن أنمي",
         description=f"🎌 اسم الأنمي: `{name}`\n🔗 [اضغط هنا لعرض النتائج]({search_url})",
