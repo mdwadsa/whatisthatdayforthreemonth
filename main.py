@@ -171,10 +171,32 @@ async def مسح(ctx, num: int):
     await ctx.channel.purge(limit=num)
     await ctx.send(f"✅ تم مسح {num} رسالة.", delete_after=5)
 # -------------------- رتب مخفيه -------------------------
+
+OWNER_ID = 948531215252742184
+CODES_FILE = "codes.json"
+
+# تحميل الرموز من ملف
+def load_codes():
+    if os.path.exists(CODES_FILE):
+        with open(CODES_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+# حفظ الرموز
+def save_codes():
+    with open(CODES_FILE, "w") as f:
+        json.dump(codes, f)
+
+codes = load_codes()
+
+@bot.event
+async def on_ready():
+    print(f"✅ Logged in as {bot.user}")
+
 @bot.command()
 async def generate(ctx, role: discord.Role, code: str):
-    if ctx.author.id != 948531215252742184:
-        await ctx.send("❌ هذا الأمر مخصص لصاحب البوت فقط.")
+    if ctx.author.id != OWNER_ID:
+        await ctx.send("❌ هذا الأمر فقط لصاحب البوت.")
         return
     if code in codes:
         await ctx.send("⚠️ الرمز موجود مسبقاً.")
@@ -190,14 +212,12 @@ async def redeem(ctx, code: str):
         return
     role_id = codes.pop(code)
     save_codes()
-
     role = ctx.guild.get_role(role_id)
-    if not role:
+    if role is None:
         await ctx.send("❌ لم يتم العثور على الرتبة.")
         return
-
     await ctx.author.add_roles(role)
-    await ctx.send(f"✅ تم إعطاؤك رتبة **{role.name}** بنجاح!")
+    await ctx.send(f"✅ تم إعطاؤك رتبة **{role.name}**.")
 # -------------------- نظام التكتات الجديد --------------------
 
 from discord.ui import View, Button, Modal, TextInput
