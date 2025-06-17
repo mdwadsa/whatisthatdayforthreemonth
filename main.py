@@ -477,7 +477,8 @@ async def all_commands(ctx):
             "`!unban user_id`\n"
             "`!timeout @عضو مدة_بالثواني`\n"
             "`!untimeout @عضو`\n"
-            "`!مسح عدد`"
+            "`!مسح عدد`\n"
+            "`!generate الرتبة`"
         ),
         inline=False
     )
@@ -526,6 +527,12 @@ async def all_commands(ctx):
             "`!movie اسم_الفيلم`\n"
             "`!Series اسم_المسلسل_بـ_شرطة_سفلية`"
         ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="🎖 أوامر الأعضاء:",
+        value="`!redeem الرمز`",
         inline=False
     )
 
