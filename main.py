@@ -389,8 +389,10 @@ async def movie(ctx, *, name: str):
     await ctx.send(embed=embed)
 
 @bot.command(name="Series")
-async def series(ctx, *, name: str):
-    formatted_name = name.lower().replace("_", "-")
+async def series(ctx, *, series_name: str):
+    # استبدال _ بشرطية -
+    formatted_name = series_name.replace("_", "-")
+
     url1 = f"https://www.faselhds.care/seasons/series-{formatted_name}"
     url2 = f"https://www.faselhds.care/seasons/مسلسل-{formatted_name}"
 
@@ -400,6 +402,7 @@ async def series(ctx, *, name: str):
         color=discord.Color.purple()
     )
     await ctx.send(embed=embed)
+
 #---------------------عرض الأوامر-----------------------
 @bot.command(name="اوامر")
 async def all_commands(ctx):
