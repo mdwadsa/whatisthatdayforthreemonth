@@ -18,7 +18,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # ملفات لتخزين البيانات
 CODES_FILE = "codes.json"
 USERS_FILE = "users.json"
-role_codes = {}
 
 def load_json(filename):
     if not os.path.exists(filename):
@@ -232,25 +231,6 @@ async def redeem(ctx, code: str):
     await ctx.author.add_roles(role)
     await ctx.send(f"✅ تم إعطاؤك رتبة **{role.name}**.")
 
-@bot.command(name="show_all")
-async def show_all(ctx):
-    if ctx.author.id != 948531215252742184:
-        return await ctx.send("🚫 ليس لديك صلاحية عرض الرموز.")
-
-    if not role_codes:
-        return await ctx.send("📭 لا توجد رموز حالياً.")
-
-    embed = discord.Embed(
-        title="📜 قائمة الرموز والرتب المرتبطة",
-        color=discord.Color.blue()
-    )
-
-    for code, role_id in role_codes.items():
-        role = ctx.guild.get_role(role_id)
-        role_name = role.name if role else "❌ غير موجودة"
-        embed.add_field(name=f"🔑 الرمز: `{code}`", value=f"🏷 الرتبة: `{role_name}`", inline=False)
-
-    await ctx.send(embed=embed)
 # -------------------- نظام التكتات الجديد --------------------
 
 from discord.ui import View, Button, Modal, TextInput
