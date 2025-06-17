@@ -3,7 +3,6 @@ from discord.ext import commands
 from discord import app_commands
 import json
 import os
-bot.run(os.getenv("MTM3NDgwNjY3MDAzNDczMTE5OA.Gs_ESL.F7KlV-zbzXnHbv62AClMluU8dbB0hjN2wgsEVM"))
 
 intents = discord.Intents.default()
 intents.guilds = True
@@ -67,3 +66,5 @@ async def redeem(interaction: discord.Interaction, code: str):
     save_codes(codes)
 
     await interaction.response.send_message(f"🎉 تم إعطاؤك الرتبة {role.mention} بنجاح!", ephemeral=False)
+
+bot.run(os.getenv("MTM3NDgwNjY3MDAzNDczMTE5OA.Gs_ESL.F7KlV-zbzXnHbv62AClMluU8dbB0hjN2wgsEVM"))
