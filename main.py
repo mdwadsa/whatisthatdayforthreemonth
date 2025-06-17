@@ -391,7 +391,7 @@ async def movie(ctx, *, name: str):
 @bot.command(name="Series")
 async def series(ctx, *, name: str):
     formatted_name = name.lower().replace("_", "-")
- url1 = f"https://www.faselhds.care/seasons/series-{formatted_name}"
+    url1 = f"https://www.faselhds.care/seasons/series-{formatted_name}"
     url2 = f"https://www.faselhds.care/seasons/مسلسل-{formatted_name}"
 
     embed = discord.Embed(
