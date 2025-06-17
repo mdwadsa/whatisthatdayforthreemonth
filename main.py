@@ -5,6 +5,7 @@ import os
 import asyncio
 from aiohttp import web
 from datetime import datetime, timedelta
+import urllib.parse
 
 intents = discord.Intents.default()
 intents.guilds = True
@@ -364,6 +365,30 @@ async def timeout(ctx, member: discord.Member, duration: int, *, reason=None):
 async def untimeout(ctx, member: discord.Member):
     await member.timeout(None)
     await ctx.send(f"✅ تم رفع التقييد عن العضو {member.mention}.")
+
+# --------------------- Shows-------------------------
+@bot.command(name="shows")
+async def shows(ctx, *, name: str):
+    try:
+        if "_" in name:
+            query = name.replace("_", "").replace(" ", "+")
+            encoded_query = urllib.parse.quote(query)
+            search_url = f"https://www.faselhds.care/?s={encoded_query}"
+            embed = discord.Embed(
+                title="🔍 نتيجة البحث في FaselHD",
+                description=f"📺 اسم المحتوى: `{name}`\n🔗 [اضغط هنا لعرض النتائج]({search_url})",
+                color=discord.Color.green()
+            )
+        else:
+            search_url = f"https://witanime.cyou/?s={urllib.parse.quote(name)}"
+            embed = discord.Embed(
+                title="🔍 نتيجة البحث في WitAnime",
+                description=f"🎌 اسم الأنمي: `{name}`\n🔗 [اضغط هنا لعرض النتائج]({search_url})",
+                color=discord.Color.blue()
+            )
+        await ctx.send(embed=embed)
+    except Exception as e:
+        await ctx.send(f"❌ حدث خطأ أثناء البحث: {e}")
 
 # -------------------- صلاحيات الأوامر --------------------
 @bot.event
