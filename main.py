@@ -4,7 +4,7 @@ import json
 import os
 import asyncio
 from aiohttp import web
-from datetime import datetime
+from datetime import datetime, timedelta
 
 intents = discord.Intents.default()
 intents.guilds = True
@@ -14,7 +14,7 @@ intents.presences = True  # ضروري لمراقبة الحالة
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ملف لتخزين الرموز
+# ملفات لتخزين البيانات
 CODES_FILE = "codes.json"
 USERS_FILE = "users.json"
 
@@ -32,44 +32,6 @@ def save_json(filename, data):
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
     online_ping_task.start()
-
-# !generate - يقوم بإنشاء رمز مربوط برتبة
-@bot.command(name="generate")
-@commands.has_permissions(administrator=True)
-async def generate(ctx, role: discord.Role, code: str):
-    codes = load_json(CODES_FILE)
-    if code in codes:
-        await ctx.send("❌ هذا الرمز مستخدم من قبل.")
-        return
-    codes[code] = role.id
-    save_json(CODES_FILE, codes)
-    await ctx.send(f"✅ تم إنشاء الرمز `{code}` للرتبة {role.mention}")
-
-# !redeem - يستبدل الرمز برتبة + يدعم منشن
-@bot.command(name="redeem")
-async def redeem(ctx, target: discord.Member, code: str = None):
-    if code is None:
-        await ctx.send("❌ الرجاء كتابة الرمز بعد المنشن. مثال: `!redeem @user الرمز`")
-        return
-
-    codes = load_json(CODES_FILE)
-
-    if code not in codes:
-        await ctx.send("❌ الرمز غير صحيح أو منتهي.")
-        return
-
-    role_id = codes[code]
-    role = ctx.guild.get_role(role_id)
-
-    if not role:
-        await ctx.send("⚠️ الرتبة غير موجودة في السيرفر.")
-        return
-
-    await target.add_roles(role)
-    del codes[code]
-    save_json(CODES_FILE, codes)
-
-    await ctx.send(f"🎉 تم إعطاء الرتبة {role.mention} للعضو {target.mention} بنجاح!")
 
 # ------------------- online_ping --------------------
 online_watchlist = {}  # { user_id: last_status }
@@ -196,13 +158,74 @@ async def show(ctx, member: discord.Member):
     delta = datetime.utcnow() - login_time
     embed = discord.Embed(
         title=f"بيانات تسجيل الدخول للعضو {member.name}",
-        description=f"📅 آخر تسجيل دخول: {login_time}\n🕒 مدة تسجيل الدخول: {delta}",
+        description=f"📅 آخر تسجيل دخول: {login_time.strftime('%d/%m/%Y')}\n🕒 مدة تسجيل الدخول: {delta}",
         color=discord.Color.blue()
     )
     await ctx.send(embed=embed)
 
-# ----------- تشغيل ويب سيرفر بسيط للحفاظ على البوت حي -----------
+# -------------------- مسح رسائل --------------------
+@bot.command(name="مسح")
+@commands.has_permissions(administrator=True)
+async def مسح(ctx, num: int):
+    await ctx.channel.purge(limit=num)
+    await ctx.send(f"✅ تم مسح {num} رسالة.", delete_after=5)
 
+# -------------------- نظام التكتات --------------------
+@bot.command(name="here_Ticket")
+async def here_ticket(ctx):
+    if ctx.channel.id != 1375073884109537391:
+        await ctx.send("❌ هذا الأمر متاح فقط في قناة التكتات.")
+        return
+
+    embed = discord.Embed(
+        title="📩 تذكرة دعم جديدة",
+        description="يرجى كتابة استفسارك أو مشكلتك هنا.",
+        color=discord.Color.green()
+    )
+    embed.set_footer(text="نظام التكتات")
+    ticket_channel = ctx.guild.get_channel(1375074073226383482)
+    await ticket_channel.send(embed=embed)
+    await ctx.send("✅ تم إنشاء تذكرة جديدة.")
+
+# -------------------- أوامر الباند والتايم أوت --------------------
+@bot.command(name="ban")
+@commands.has_permissions(ban_members=True)
+async def ban(ctx, member: discord.Member, *, reason=None):
+    await member.ban(reason=reason)
+    await ctx.send(f"✅ تم حظر العضو {member.mention}.")
+
+@bot.command(name="unban")
+@commands.has_permissions(ban_members=True)
+async def unban(ctx, user_id: int):
+    user = await bot.fetch_user(user_id)
+    await ctx.guild.unban(user)
+    await ctx.send(f"✅ تم فك حظر العضو {user.mention}.")
+
+@bot.command(name="timeout")
+@commands.has_permissions(moderate_members=True)
+async def timeout(ctx, member: discord.Member, duration: int, *, reason=None):
+    until = discord.utils.utcnow() + timedelta(seconds=duration)
+    await member.timeout(until=until, reason=reason)
+    await ctx.send(f"✅ تم تقييد العضو {member.mention} لمدة {duration} ثانية.")
+
+@bot.command(name="untimeout")
+@commands.has_permissions(moderate_members=True)
+async def untimeout(ctx, member: discord.Member):
+    await member.timeout(None)
+    await ctx.send(f"✅ تم رفع التقييد عن العضو {member.mention}.")
+
+# -------------------- صلاحيات الأوامر --------------------
+@bot.event
+async def on_command(ctx):
+    if ctx.command.name in ["dm", "all_dm", "generate"] and ctx.author.id != 948531215252742184:
+        await ctx.send("❌ ليس لديك الصلاحية لاستخدام هذا الأمر.")
+        raise commands.CheckFailure("لا تمتلك الصلاحية.")
+
+    if ctx.command.name in ["show", "unban", "ban", "timeout", "untimeout"] and not any(role.id == 1384420303345680448 for role in ctx.author.roles):
+        await ctx.send("❌ ليس لديك الصلاحية لاستخدام هذا الأمر.")
+        raise commands.CheckFailure("لا تمتلك الصلاحية.")
+
+# -------------------- تشغيل ويب سيرفر بسيط للحفاظ على البوت حي --------------------
 PORT = int(os.getenv("PORT", 8080))  # تستخدم متغير البيئة PORT أو 8080 افتراضياً
 
 async def handle(request):
