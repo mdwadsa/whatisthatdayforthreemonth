@@ -7,6 +7,7 @@ import os
 intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
+intents.message_content
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 TREE = bot.tree
@@ -67,4 +68,4 @@ async def redeem(interaction: discord.Interaction, code: str):
 
     await interaction.response.send_message(f"🎉 تم إعطاؤك الرتبة {role.mention} بنجاح!", ephemeral=False)
 
-bot.run(os.getenv("MTM3NDgwNjY3MDAzNDczMTE5OA.Gs_ESL.F7KlV-zbzXnHbv62AClMluU8dbB0hjN2wgsEVM"))
+bot.run(os.getenv("DISCORD_BOT_TOKEN"))
