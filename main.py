@@ -18,6 +18,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # ملفات لتخزين البيانات
 CODES_FILE = "codes.json"
 USERS_FILE = "users.json"
+role_codes = {}
 
 def load_json(filename):
     if not os.path.exists(filename):
