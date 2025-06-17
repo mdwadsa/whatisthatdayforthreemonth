@@ -367,30 +367,108 @@ async def untimeout(ctx, member: discord.Member):
     await ctx.send(f"✅ تم رفع التقييد عن العضو {member.mention}.")
 
 # --------------------- Shows-------------------------
-@bot.command(name="shows")
-async def shows(ctx, *, name: str):
-    try:
-        if "_" in name:
-            query = name.replace("_", "").replace(" ", "+")
-            encoded_query = urllib.parse.quote(query)
-            search_url = f"https://www.faselhds.care/?s={encoded_query}"
-            embed = discord.Embed(
-                title="🔍 نتيجة البحث في FaselHD",
-                description=f"📺 اسم المحتوى: `{name}`\n🔗 [اضغط هنا لعرض النتائج]({search_url})",
-                color=discord.Color.green()
-            )
-        else:
-            search_url = f"https://witanime.cyou/?s={urllib.parse.quote(name)}"
-            embed = discord.Embed(
-                title="🔍 نتيجة البحث في WitAnime",
-                description=f"🎌 اسم الأنمي: `{name}`\n🔗 [اضغط هنا لعرض النتائج]({search_url})",
-                color=discord.Color.blue()
-            )
-        await ctx.send(embed=embed)
-    except Exception as e:
-        await ctx.send(f"❌ حدث خطأ أثناء البحث: {e}")
+@bot.command(name="anime")
+async def anime(ctx, *, name: str):
+    search_url = f"https://witanime.cyou/?search_param=animes&s={name}"
+    embed = discord.Embed(
+        title="🔎 نتيجة البحث عن أنمي",
+        description=f"🎌 اسم الأنمي: `{name}`\n🔗 [اضغط هنا لعرض النتائج]({search_url})",
+        color=discord.Color.blue()
+    )
+    await ctx.send(embed=embed)
 
-# -------------------- صلاحيات الأوامر --------------------
+@bot.command(name="movie")
+async def movie(ctx, *, name: str):
+    formatted_name = name.lower().replace(" ", "-")
+    search_url = f"https://www.faselhds.care/movies/1فيلم-{formatted_name}"
+    embed = discord.Embed(
+        title="🎬 رابط الفيلم",
+        description=f"🎞️ اسم الفيلم: `{name}`\n🔗 [مشاهدة الفيلم]({search_url})",
+        color=discord.Color.green()
+    )
+    await ctx.send(embed=embed)
+
+@bot.command(name="Series")
+async def series(ctx, *, name: str):
+    formatted_name = name.lower().replace("_", "-")
+    search_url = f"https://www.faselhds.care/seasons/series-{formatted_name}"
+    embed = discord.Embed(
+        title="📺 رابط المسلسل",
+        description=f"📺 اسم المسلسل: `{name}`\n🔗 [مشاهدة المواسم]({search_url})",
+        color=discord.Color.purple()
+    )
+    await ctx.send(embed=embed)
+#---------------------عرض الأوامر-----------------------
+@bot.command(name="اوامر")
+async def all_commands(ctx):
+    embed = discord.Embed(
+        title="📜 قائمة أوامر البوت",
+        description="جميع الأوامر المتوفرة حالياً:",
+        color=discord.Color.gold()
+    )
+
+    embed.add_field(
+        name="🔧 أوامر الإدارة:",
+        value=(
+            "`!ban @عضو [سبب]`\n"
+            "`!unban user_id`\n"
+            "`!timeout @عضو مدة_بالثواني`\n"
+            "`!untimeout @عضو`\n"
+            "`!مسح عدد`"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="📥 أوامر الرسائل الخاصة:",
+        value=(
+            "`!dm @عضو رسالة`\n"
+            "`!all_dm رسالة`"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="🕒 تسجيل الدخول والخروج:",
+        value=(
+            "`!login`\n"
+            "`!logout`\n"
+            "`!show @عضو`"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="🎫 نظام التكتات:",
+        value="`!setup_Ticket` (واجهة إنشاء التكت)",
+        inline=False
+    )
+
+    embed.add_field(
+        name="👀 مراقبة الحالة:",
+        value="`!online_ping user_id`",
+        inline=False
+    )
+
+    embed.add_field(
+        name="🧪 حالة البوت:",
+        value="`!areyouhere?`",
+        inline=False
+    )
+
+    embed.add_field(
+        name="🎬 أوامر البحث:",
+        value=(
+            "`!anime اسم_الأنمي`\n"
+            "`!movie اسم_الفيلم`\n"
+            "`!Series اسم_المسلسل_بـ_شرطة_سفلية`"
+        ),
+        inline=False
+    )
+
+    await ctx.send(embed=embed)
+
+# --------------------صلاحيات الأوامر --------------------
 @bot.event
 async def on_command(ctx):
     if ctx.command.name in ["dm", "all_dm", "generate"] and ctx.author.id != 948531215252742184:
