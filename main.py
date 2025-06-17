@@ -10,7 +10,7 @@ intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
 intents.message_content = True
-intents.presences = True  # ضروري لمراقبة الحالة
+intents.presences = True  # لمراقبة الحالة
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -170,22 +170,173 @@ async def مسح(ctx, num: int):
     await ctx.channel.purge(limit=num)
     await ctx.send(f"✅ تم مسح {num} رسالة.", delete_after=5)
 
-# -------------------- نظام التكتات --------------------
-@bot.command(name="here_Ticket")
-async def here_ticket(ctx):
-    if ctx.channel.id != 1375073884109537391:
-        await ctx.send("❌ هذا الأمر متاح فقط في قناة التكتات.")
+# -------------------- نظام التكتات الجديد --------------------
+
+from discord.ui import View, Button, Modal, TextInput
+
+TICKET_CATEGORY_ID = None  # ضع هنا اي دي الفئة (category) التي تريد انشاء التكتات داخلها إذا كانت موجودة
+TICKET_LOG_CHANNEL_ID = 1375074073226383482
+STAFF_ROLE_ID = 1384415026323918849
+
+TICKET_RULES_TEXT = (
+    "**قوانين التكت:**\n"
+    "1- الالتزام بالأسلوب.\n"
+    "2- عدم السبام (كثرة المنشن).\n"
+    "3- احترام الجميع داخل التكت وخارجه.\n"
+)
+
+# رسالة قوانين التكت عند الضغط على زر "قوانين التكت"
+class RulesView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(Button(label="حسنًا", style=discord.ButtonStyle.green))
+
+    @discord.ui.button(label="حسنًا", style=discord.ButtonStyle.green)
+    async def ok_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        await interaction.message.delete()
+
+# مودال لكتابة سبب الإغلاق
+class CloseReasonModal(Modal, title="سبب إغلاق التكت"):
+    def __init__(self, ticket_channel):
+        super().__init__()
+        self.ticket_channel = ticket_channel
+
+    reason = TextInput(label="اكتب سبب الإغلاق هنا:", style=discord.TextStyle.paragraph, required=True, max_length=200)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # اغلاق التكت مع ذكر السبب
+        await self.ticket_channel.delete()
+        log_channel = interaction.guild.get_channel(TICKET_LOG_CHANNEL_ID)
+        embed = discord.Embed(
+            title="❌ تم إغلاق التكت",
+            description=f"تم إغلاق التكت #{self.ticket_channel.name} من قبل {interaction.user.mention}\n**السبب:** {self.reason.value}",
+            color=discord.Color.red()
+        )
+        await log_channel.send(embed=embed)
+        await interaction.response.send_message("✅ تم إغلاق التكت مع ذكر السبب.", ephemeral=True)
+
+# فيو أزرار التكت
+class TicketView(View):
+    def __init__(self, ticket_channel, ticket_owner):
+        super().__init__(timeout=None)
+        self.ticket_channel = ticket_channel
+        self.ticket_owner = ticket_owner
+
+    @discord.ui.button(label="إغلاق التكت", style=discord.ButtonStyle.red, custom_id="close_ticket")
+    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.channel.id != self.ticket_channel.id:
+            await interaction.response.send_message("❌ هذا الزر ليس في التكت الصحيح.", ephemeral=True)
+            return
+        # اغلاق التكت بدون سبب
+        await self.ticket_channel.delete()
+        log_channel = interaction.guild.get_channel(TICKET_LOG_CHANNEL_ID)
+        embed = discord.Embed(
+            title="❌ تم إغلاق التكت",
+            description=f"تم إغلاق التكت #{self.ticket_channel.name} من قبل {interaction.user.mention}",
+            color=discord.Color.red()
+        )
+        await log_channel.send(embed=embed)
+        await interaction.response.send_message("✅ تم إغلاق التكت.", ephemeral=True)
+
+    @discord.ui.button(label="إغلاق التكت مع سبب", style=discord.ButtonStyle.grey, custom_id="close_ticket_reason")
+    async def close_ticket_reason(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.channel.id != self.ticket_channel.id:
+            await interaction.response.send_message("❌ هذا الزر ليس في التكت الصحيح.", ephemeral=True)
+            return
+        modal = CloseReasonModal(self.ticket_channel)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="استلام التكت", style=discord.ButtonStyle.blurple, custom_id="claim_ticket")
+    async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # فقط للموظفين الحاملين الرتبة المحددة
+        if not any(role.id == STAFF_ROLE_ID for role in interaction.user.roles):
+            await interaction.response.send_message("❌ ليس لديك صلاحية استلام التكت.", ephemeral=True)
+            return
+
+        log_channel = interaction.guild.get_channel(TICKET_LOG_CHANNEL_ID)
+        embed = discord.Embed(
+            title="🔵 تم استلام التكت",
+            description=f"تم استلام التكت #{self.ticket_channel.name} من قبل {interaction.user.mention}",
+            color=discord.Color.blue()
+        )
+        await log_channel.send(embed=embed)
+        await interaction.response.send_message("✅ تم استلام التكت بنجاح.", ephemeral=True)
+
+# فيو أزرار القائمة الرئيسية لانشاء التكت
+class TicketSetupView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="إنشاء تكت", style=discord.ButtonStyle.green, custom_id="create_ticket")
+    async def create_ticket_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild = interaction.guild
+        author = interaction.user
+
+        # تحقق هل لديه تكت مفتوح من قبل (مثلاً نفس الاسم)
+        existing = discord.utils.get(guild.text_channels, name=f"ticket-{author.name.lower()}")
+        if existing:
+            await interaction.response.send_message(f"❌ لديك تكت مفتوح بالفعل: {existing.mention}", ephemeral=True)
+            return
+
+        # أنشئ التكت في نفس الفئة (إذا محدد)
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            author: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+            guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+        }
+
+        if TICKET_CATEGORY_ID:
+            category = guild.get_channel(TICKET_CATEGORY_ID)
+            ticket_channel = await guild.create_text_channel(f"ticket-{author.name.lower()}", overwrites=overwrites, category=category)
+        else:
+            ticket_channel = await guild.create_text_channel(f"ticket-{author.name.lower()}", overwrites=overwrites)
+
+        # أرسل قوانين التكت داخل القناة
+        embed = discord.Embed(
+            title=f"🎫 تكت جديد لـ {author.display_name}",
+            description=TICKET_RULES_TEXT,
+            color=discord.Color.green()
+        )
+        message = await ticket_channel.send(content=f"{author.mention}", embed=embed, view=TicketView(ticket_channel, author))
+        await interaction.response.send_message(f"✅ تم إنشاء التكت: {ticket_channel.mention}", ephemeral=True)
+
+    @discord.ui.button(label="قوانين التكت", style=discord.ButtonStyle.blurple, custom_id="ticket_rules")
+    async def ticket_rules_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="📜 قوانين التكت",
+            description=TICKET_RULES_TEXT,
+            color=discord.Color.gold()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.command(name="setup_Ticket")
+@commands.has_permissions(administrator=True)
+async def setup_ticket(ctx):
+    embed = discord.Embed(
+        title="نظام التكتات",
+        description="اختر أحد الخيارات من الأزرار أدناه:",
+        color=discord.Color.blurple()
+    )
+    view = TicketSetupView()
+    await ctx.send(embed=embed, view=view)
+
+# -------------------- أمر !areyouhere? لتحديث روم الحالة --------------------
+STATUS_CHANNEL_ID = 1375073424300314664
+
+@bot.command(name="areyouhere?")
+async def areyouhere(ctx):
+    channel = bot.get_channel(STATUS_CHANNEL_ID)
+    if channel is None:
+        await ctx.send("❌ لم أتمكن من العثور على قناة الحالة.")
         return
 
     embed = discord.Embed(
-        title="📩 تذكرة دعم جديدة",
-        description="يرجى كتابة استفسارك أو مشكلتك هنا.",
+        description="! I am here",
         color=discord.Color.green()
     )
-    embed.set_footer(text="نظام التكتات")
-    ticket_channel = ctx.guild.get_channel(1375074073226383482)
-    await ticket_channel.send(embed=embed)
-    await ctx.send("✅ تم إنشاء تذكرة جديدة.")
+    await channel.send(embed=embed)
+    await ctx.send("✅ تم إرسال رسالة الحالة.")
 
 # -------------------- أوامر الباند والتايم أوت --------------------
 @bot.command(name="ban")
