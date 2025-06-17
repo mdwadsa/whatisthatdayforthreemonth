@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import json
 import os
 
@@ -10,7 +9,6 @@ intents.members = True
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-TREE = bot.tree
 
 # ملف لتخزين الرموز
 CODES_FILE = "codes.json"
@@ -27,45 +25,43 @@ def save_codes(codes):
 
 @bot.event
 async def on_ready():
-    await TREE.sync()
     print(f"✅ Logged in as {bot.user}")
 
-# /generate - يقوم بإنشاء رمز مربوط برتبة
-@TREE.command(name="generate", description="إنشاء رمز مربوط برتبة")
-@app_commands.describe(role="اختر الرتبة", code="أدخل الرمز اليدوي الذي تريده")
-async def generate(interaction: discord.Interaction, role: discord.Role, code: str):
+# !generate - يقوم بإنشاء رمز مربوط برتبة
+@bot.command(name="generate")
+@commands.has_permissions(administrator=True)  # مثلا صلاحيات الأدمن لتوليد الرمز
+async def generate(ctx, role: discord.Role, code: str):
     codes = load_codes()
-    
+
     if code in codes:
-        await interaction.response.send_message("❌ هذا الرمز مستخدم من قبل.", ephemeral=True)
+        await ctx.send("❌ هذا الرمز مستخدم من قبل.")
         return
 
     codes[code] = role.id
     save_codes(codes)
-    await interaction.response.send_message(f"✅ تم إنشاء الرمز `{code}` للرتبة {role.mention}", ephemeral=True)
+    await ctx.send(f"✅ تم إنشاء الرمز `{code}` للرتبة {role.mention}")
 
-# /redeem - يستبدل الرمز برتبة
-@TREE.command(name="redeem", description="استبدال رمز للحصول على رتبة")
-@app_commands.describe(code="أدخل الرمز")
-async def redeem(interaction: discord.Interaction, code: str):
+# !redeem - يستبدل الرمز برتبة
+@bot.command(name="redeem")
+async def redeem(ctx, code: str):
     codes = load_codes()
-    user = interaction.user
+    user = ctx.author
 
     if code not in codes:
-        await interaction.response.send_message("❌ الرمز غير صحيح أو منتهي.", ephemeral=True)
+        await ctx.send("❌ الرمز غير صحيح أو منتهي.")
         return
 
     role_id = codes[code]
-    role = interaction.guild.get_role(role_id)
+    role = ctx.guild.get_role(role_id)
 
     if not role:
-        await interaction.response.send_message("⚠️ الرتبة غير موجودة في السيرفر.", ephemeral=True)
+        await ctx.send("⚠️ الرتبة غير موجودة في السيرفر.")
         return
 
     await user.add_roles(role)
     del codes[code]
     save_codes(codes)
 
-    await interaction.response.send_message(f"🎉 تم إعطاؤك الرتبة {role.mention} بنجاح!", ephemeral=False)
+    await ctx.send(f"🎉 تم إعطاؤك الرتبة {role.mention} بنجاح!")
 
 bot.run(os.getenv("DISCORD_BOT_TOKEN"))
