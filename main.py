@@ -7,6 +7,7 @@ from aiohttp import web
 from datetime import datetime, timedelta
 import urllib.parse
 import yt_dlp as youtube_dl
+from gtts import gTTS
 
 intents = discord.Intents.default()
 intents.guilds = True
@@ -35,6 +36,45 @@ def save_json(filename, data):
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
     online_ping_task.start()
+# ------------------ البوت يسولف -----------------------
+@bot.event
+async def on_ready():
+    print(f'Logged in as {bot.user}!')
+
+@bot.command()
+async def قول(ctx, *, النص):
+    # تأكد ان المستخدم داخل روم صوتي
+    if not ctx.author.voice:
+        await ctx.send("لازم تكون داخل روم صوتي عشان أتكلم هناك!")
+        return
+
+    # إذا البوت مش داخل روم صوتي، يدخل روم المستخدم
+    if not ctx.voice_client:
+        channel = ctx.author.voice.channel
+        await channel.connect()
+    elif ctx.voice_client.channel != ctx.author.voice.channel:
+        await ctx.voice_client.move_to(ctx.author.voice.channel)
+
+    # تحويل النص لصوت وحفظه مؤقتًا
+    tts = gTTS(text=النص, lang='ar')
+    filename = "tts.mp3"
+    tts.save(filename)
+
+    voice_client = ctx.voice_client
+
+    # تشغيل الصوت
+    if not voice_client.is_playing():
+        voice_client.play(discord.FFmpegPCMAudio(executable="ffmpeg", source=filename))
+
+        # انتظر حتى يخلص الصوت
+        while voice_client.is_playing():
+            await asyncio.sleep(1)
+
+        # حذف الملف بعد ما يخلص
+        os.remove(filename)
+    else:
+        await ctx.send("البوت يشغل صوت الآن، انتظر شوي!")
+
 # ------------------- SoundCloud ---------------------
 OWNER_ID = 948531215252742184
 
