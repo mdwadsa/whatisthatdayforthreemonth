@@ -38,7 +38,10 @@ async def on_ready():
 # ------------------- SoundCloud ---------------------
 OWNER_ID = 948531215252742184
 
-# إعدادات youtube_dl لتشغيل ساوند كلاود
+# ملف حفظ الأغاني
+SONGS_FILE = "songs.json"
+
+# إعدادات yt_dlp
 ydl_opts = {
     'format': 'bestaudio/best',
     'noplaylist': True,
@@ -49,6 +52,20 @@ ydl_opts = {
         'preferredquality': '192',
     }]
 }
+
+# تحميل البيانات من ملف JSON
+def load_songs():
+    if os.path.exists(SONGS_FILE):
+        with open(SONGS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+# حفظ البيانات
+def save_songs(songs):
+    with open(SONGS_FILE, 'w') as f:
+        json.dump(songs, f, indent=4)
+
+saved_songs = load_songs()
 
 # التحقق من صلاحيات المستخدم
 def is_owner(ctx):
@@ -68,24 +85,48 @@ async def join(ctx, channel_id: int):
 # أمر !play
 @bot.command()
 @commands.check(is_owner)
-async def play(ctx, url):
+async def play(ctx, name_or_url):
     voice_client = ctx.guild.voice_client
 
     if not voice_client:
         await ctx.send("❌ يجب أن أكون في روم صوتي أولاً. استخدم !join.")
         return
 
-    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        audio_url = info['url']
+    url = saved_songs.get(name_or_url, name_or_url)
 
-    # تشغيل الصوت
-    voice_client.stop()  # يوقف أي تشغيل سابق
-    voice_client.play(discord.FFmpegPCMAudio(audio_url), after=lambda e: print(f"تم الانتهاء من التشغيل: {e}"))
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        try:
+            info = ydl.extract_info(url, download=False)
+            audio_url = info['url']
+        except Exception as e:
+            await ctx.send(f"❌ حدث خطأ أثناء جلب الرابط: {e}")
+            return
+
+    voice_client.stop()
+    voice_client.play(discord.FFmpegPCMAudio(audio_url), after=lambda e: print(f"انتهى التشغيل: {e}"))
 
     await ctx.send(f"🎵 جاري تشغيل: {info.get('title', 'مقطع صوتي')}")
 
-# أمر الخروج
+# أمر !stop
+@bot.command()
+@commands.check(is_owner)
+async def stop(ctx):
+    voice_client = ctx.guild.voice_client
+    if voice_client and voice_client.is_playing():
+        voice_client.stop()
+        await ctx.send("⏹️ تم إيقاف التشغيل.")
+    else:
+        await ctx.send("❌ لا يوجد شيء يعمل حالياً.")
+
+# أمر !name <url> <اسم>
+@bot.command()
+@commands.check(is_owner)
+async def name(ctx, url, name):
+    saved_songs[name] = url
+    save_songs(saved_songs)
+    await ctx.send(f"✅ تم حفظ الأغنية باسم: `{name}`")
+
+# أمر !leave
 @bot.command()
 @commands.check(is_owner)
 async def leave(ctx):
