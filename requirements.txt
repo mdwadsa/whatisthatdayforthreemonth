@@ -3,3 +3,5 @@ discord-py-interactions
 discord.py[voice]
 yt-dlp
 ffmpeg-python
+discord.py[voice]
+gtts
