@@ -6,7 +6,7 @@ import asyncio
 from aiohttp import web
 from datetime import datetime, timedelta
 import urllib.parse
-import youtube_dl
+import yt_dlp as youtube_dl
 
 intents = discord.Intents.default()
 intents.guilds = True
