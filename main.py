@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import urllib.parse
 import yt_dlp as youtube_dl
 from gtts import gTTS
+import random
 
 intents = discord.Intents.default()
 intents.guilds = True
@@ -75,13 +76,6 @@ async def قول(ctx, *, النص):
     else:
         await ctx.send("البوت يشغل صوت الآن، انتظر شوي!")
 # ------------------- روليت ---------------------------
-import discord
-from discord.ext import commands
-import random
-import asyncio
-
-intents = discord.Intents.default()
-bot = commands.Bot(command_prefix="!", intents=intents)
 
 # رابط صورة GIF للروليت (غيره برابطك المباشر)
 ROULETTE_GIF_URL = "https://cdn.discordapp.com/attachments/1385506924824625243/1385754577936191652/roulette_spin_fast_to_normal.gif?ex=68573805&is=6855e685&hm=3b24f7871e143a9af4e7c2e9b7104c2657410dcd15306dfd3c7f328be4bc6635&"
@@ -99,7 +93,7 @@ roulette_slots = [
 ]
 
 # كول داون 10 ثواني لكل مستخدم
-@bot.command(name="روليت")
+@bot.command(name="Rolet")
 @commands.cooldown(1, 10, commands.BucketType.user)
 async def roulette(ctx):
     # إرسال GIF للروليت
