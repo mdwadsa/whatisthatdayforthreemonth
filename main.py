@@ -139,6 +139,29 @@ async def leave(ctx):
         await ctx.send("👋 تم الخروج من الروم الصوتي.")
     else:
         await ctx.send("❌ لست متصلاً بأي روم صوتي.")
+#صوت
+@bot.command()
+@commands.check(is_owner)
+async def صوت(ctx, percentage: int):
+    voice_client = ctx.guild.voice_client
+
+    if not voice_client or not voice_client.is_playing():
+        await ctx.send("❌ لا يوجد شيء يعمل حالياً لتغيير صوته.")
+        return
+
+    # تحقق من أن مصدر الصوت يدعم ضبط الصوت (PCMVolumeTransformer)
+    source = voice_client.source
+    if not isinstance(source, discord.PCMVolumeTransformer):
+        await ctx.send("❌ لا يمكن تعديل الصوت لأن المصدر الحالي لا يدعم ضبط الصوت.")
+        return
+
+    if percentage < 1 or percentage > 100:
+        await ctx.send("❌ الرجاء اختيار رقم بين 1 و 100 للصوت.")
+        return
+
+    volume = percentage / 100
+    source.volume = volume
+    await ctx.send(f"🔊 تم تعديل الصوت إلى {percentage}%")
 
 # ------------------- رتب تلقائيه ------------------------
 @bot.event
