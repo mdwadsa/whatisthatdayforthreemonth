@@ -107,7 +107,9 @@ async def play(ctx, name_or_url):
             return
 
     voice_client.stop()
-    voice_client.play(discord.FFmpegPCMAudio(audio_url), after=lambda e: print(f"انتهى التشغيل: {e}"))
+    source = discord.FFmpegPCMAudio(audio_url)
+    player = discord.PCMVolumeTransformer(source, volume=1.0)  # 100% صوت
+    voice_client.play(player)
 
     await ctx.send(f"🎵 جاري تشغيل: {info.get('title', 'مقطع صوتي')}")
 
