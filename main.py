@@ -56,8 +56,12 @@ ydl_opts = {
 # تحميل البيانات من ملف JSON
 def load_songs():
     if os.path.exists(SONGS_FILE):
-        with open(SONGS_FILE, 'r') as f:
-            return json.load(f)
+        try:
+            with open(SONGS_FILE, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            # الملف فاضي أو تالف، يرجع قاموس فارغ
+            return {}
     return {}
 
 # حفظ البيانات
