@@ -1,2 +1,5 @@
 discord.py
 discord-py-interactions
+discord.py[voice]
+yt-dlp
+ffmpeg-python
