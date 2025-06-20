@@ -74,6 +74,63 @@ async def قول(ctx, *, النص):
         os.remove(filename)
     else:
         await ctx.send("البوت يشغل صوت الآن، انتظر شوي!")
+# ------------------- روليت ---------------------------
+import discord
+from discord.ext import commands
+import random
+import asyncio
+
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+# رابط صورة GIF للروليت (غيره برابطك المباشر)
+ROULETTE_GIF_URL = "https://cdn.discordapp.com/attachments/1385506924824625243/1385754577936191652/roulette_spin_fast_to_normal.gif?ex=68573805&is=6855e685&hm=3b24f7871e143a9af4e7c2e9b7104c2657410dcd15306dfd3c7f328be4bc6635&"
+
+# خانات الروليت (تقدر تعدلها)
+roulette_slots = [
+    "💰 فلوس",
+    "🍎 تفاحة",
+    "🔥 نار",
+    "🎁 صندوق مفاجأة",
+    "💀 خسارة",
+    "🎉 فوز كبير",
+    "🧊 تجميد",
+    "🌟 نجمة"
+]
+
+# كول داون 10 ثواني لكل مستخدم
+@bot.command(name="روليت")
+@commands.cooldown(1, 10, commands.BucketType.user)
+async def roulette(ctx):
+    # إرسال GIF للروليت
+    embed = discord.Embed(
+        title="🎯 الروليت تدور...",
+        description="⏳ انتظر النتيجة...",
+        color=discord.Color.blurple()
+    )
+    embed.set_image(url=ROULETTE_GIF_URL)
+    message = await ctx.send(embed=embed)
+
+    # انتظر مدة الـGIF تقريباً 3 ثواني
+    await asyncio.sleep(3.5)
+
+    # اختيار خانة عشوائية
+    result = random.choice(roulette_slots)
+
+    # تحديث الرسالة بالنتيجة
+    result_embed = discord.Embed(
+        title="🎉 النتيجة!",
+        description=f"**{ctx.author.mention}** حصل على: **{result}**",
+        color=discord.Color.green()
+    )
+    result_embed.set_image(url=ROULETTE_GIF_URL)
+    await message.edit(embed=result_embed)
+
+# رسائل الخطأ عند تكرار الأمر قبل انتهاء الكول داون
+@roulette.error
+async def roulette_error(ctx, error):
+    if isinstance(error, commands.CommandOnCooldown):
+        await ctx.send(f"⏳ انتظر {round(error.retry_after, 1)} ثانية قبل استخدام الروليت مرة أخرى.", delete_after=5)
 
 # ------------------- SoundCloud ---------------------
 OWNER_ID = 948531215252742184
