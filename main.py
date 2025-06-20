@@ -6,11 +6,13 @@ import asyncio
 from aiohttp import web
 from datetime import datetime, timedelta
 import urllib.parse
+import youtube_dl
 
 intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
 intents.message_content = True
+intents.voice_states = True
 intents.presences = True  # لمراقبة الحالة
 
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -33,6 +35,66 @@ def save_json(filename, data):
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
     online_ping_task.start()
+# ------------------- SoundCloud ---------------------
+OWNER_ID = 948531215252742184
+
+# إعدادات youtube_dl لتشغيل ساوند كلاود
+ydl_opts = {
+    'format': 'bestaudio/best',
+    'noplaylist': True,
+    'quiet': True,
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '192',
+    }]
+}
+
+# التحقق من صلاحيات المستخدم
+def is_owner(ctx):
+    return ctx.author.id == OWNER_ID
+
+# أمر !join
+@bot.command()
+@commands.check(is_owner)
+async def join(ctx, channel_id: int):
+    channel = bot.get_channel(channel_id)
+    if isinstance(channel, discord.VoiceChannel):
+        await channel.connect()
+        await ctx.send(f"✅ انضممت إلى الروم الصوتي: {channel.name}")
+    else:
+        await ctx.send("❌ لم أتمكن من العثور على روم صوتي بهذا المعرف.")
+
+# أمر !play
+@bot.command()
+@commands.check(is_owner)
+async def play(ctx, url):
+    voice_client = ctx.guild.voice_client
+
+    if not voice_client:
+        await ctx.send("❌ يجب أن أكون في روم صوتي أولاً. استخدم !join.")
+        return
+
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        audio_url = info['url']
+
+    # تشغيل الصوت
+    voice_client.stop()  # يوقف أي تشغيل سابق
+    voice_client.play(discord.FFmpegPCMAudio(audio_url), after=lambda e: print(f"تم الانتهاء من التشغيل: {e}"))
+
+    await ctx.send(f"🎵 جاري تشغيل: {info.get('title', 'مقطع صوتي')}")
+
+# أمر الخروج
+@bot.command()
+@commands.check(is_owner)
+async def leave(ctx):
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.send("👋 تم الخروج من الروم الصوتي.")
+    else:
+        await ctx.send("❌ لست متصلاً بأي روم صوتي.")
+
 # ------------------- رتب تلقائيه ------------------------
 @bot.event
 async def on_member_join(member):
