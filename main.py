@@ -127,12 +127,10 @@ async def roulette_error(ctx, error):
         await ctx.send(f"⏳ انتظر {round(error.retry_after, 1)} ثانية قبل استخدام الروليت مرة أخرى.", delete_after=5)
 
 # ------------------- SoundCloud ---------------------
-OWNER_ID = 948531215252742184
 
-# ملف حفظ الأغاني
+OWNER_ID = 948531215252742184
 SONGS_FILE = "songs.json"
 
-# إعدادات yt_dlp
 ydl_opts = {
     'format': 'bestaudio/best',
     'noplaylist': True,
@@ -144,29 +142,24 @@ ydl_opts = {
     }]
 }
 
-# تحميل البيانات من ملف JSON
 def load_songs():
     if os.path.exists(SONGS_FILE):
         try:
             with open(SONGS_FILE, 'r') as f:
                 return json.load(f)
         except json.JSONDecodeError:
-            # الملف فاضي أو تالف، يرجع قاموس فارغ
             return {}
     return {}
 
-# حفظ البيانات
 def save_songs(songs):
     with open(SONGS_FILE, 'w') as f:
         json.dump(songs, f, indent=4)
 
 saved_songs = load_songs()
 
-# التحقق من صلاحيات المستخدم
 def is_owner(ctx):
     return ctx.author.id == OWNER_ID
 
-# أمر !join
 @bot.command()
 @commands.check(is_owner)
 async def join(ctx, channel_id: int):
@@ -177,12 +170,10 @@ async def join(ctx, channel_id: int):
     else:
         await ctx.send("❌ لم أتمكن من العثور على روم صوتي بهذا المعرف.")
 
-# أمر !play
 @bot.command()
 @commands.check(is_owner)
 async def play(ctx, name_or_url):
     voice_client = ctx.guild.voice_client
-
     if not voice_client:
         await ctx.send("❌ يجب أن أكون في روم صوتي أولاً. استخدم !join.")
         return
@@ -198,13 +189,35 @@ async def play(ctx, name_or_url):
             return
 
     voice_client.stop()
-    source = discord.FFmpegPCMAudio(audio_url)
-    player = discord.PCMVolumeTransformer(source, volume=1.0)  # 100% صوت
+    ffmpeg_opts = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn'
+    }
+    source = discord.FFmpegPCMAudio(audio_url, **ffmpeg_opts)
+    player = discord.PCMVolumeTransformer(source, volume=1.0)
     voice_client.play(player)
 
-    await ctx.send(f"🎵 جاري تشغيل: {info.get('title', 'مقطع صوتي')}")
+    saved_songs["last_url"] = audio_url
+    save_songs(saved_songs)
 
-# أمر !stop
+    duration = info.get("duration", 0)
+    await ctx.send(f"🎵 جاري تشغيل: {info.get('title', 'مقطع صوتي')}\n⏱️ المدة: {int(duration // 60)}:{int(duration % 60):02d}")
+
+    async def progress_bar():
+        elapsed = 0
+        message = await ctx.send(f"⏳ الوقت: 0:00 / {int(duration // 60)}:{int(duration % 60):02d}")
+        while voice_client.is_playing() and elapsed < duration:
+            await asyncio.sleep(5)
+            elapsed += 5
+            minutes = elapsed // 60
+            seconds = elapsed % 60
+            try:
+                await message.edit(content=f"⏳ الوقت: {minutes}:{seconds:02d} / {int(duration // 60)}:{int(duration % 60):02d}")
+            except discord.NotFound:
+                break
+
+    bot.loop.create_task(progress_bar())
+
 @bot.command()
 @commands.check(is_owner)
 async def stop(ctx):
@@ -215,7 +228,6 @@ async def stop(ctx):
     else:
         await ctx.send("❌ لا يوجد شيء يعمل حالياً.")
 
-# أمر !name <url> <اسم>
 @bot.command()
 @commands.check(is_owner)
 async def name(ctx, url, name):
@@ -223,7 +235,6 @@ async def name(ctx, url, name):
     save_songs(saved_songs)
     await ctx.send(f"✅ تم حفظ الأغنية باسم: `{name}`")
 
-# أمر !leave
 @bot.command()
 @commands.check(is_owner)
 async def leave(ctx):
@@ -232,17 +243,15 @@ async def leave(ctx):
         await ctx.send("👋 تم الخروج من الروم الصوتي.")
     else:
         await ctx.send("❌ لست متصلاً بأي روم صوتي.")
-#صوت
+
 @bot.command()
 @commands.check(is_owner)
 async def صوت(ctx, percentage: int):
     voice_client = ctx.guild.voice_client
-
     if not voice_client or not voice_client.is_playing():
         await ctx.send("❌ لا يوجد شيء يعمل حالياً لتغيير صوته.")
         return
 
-    # تحقق من أن مصدر الصوت يدعم ضبط الصوت (PCMVolumeTransformer)
     source = voice_client.source
     if not isinstance(source, discord.PCMVolumeTransformer):
         await ctx.send("❌ لا يمكن تعديل الصوت لأن المصدر الحالي لا يدعم ضبط الصوت.")
@@ -255,6 +264,68 @@ async def صوت(ctx, percentage: int):
     volume = percentage / 100
     source.volume = volume
     await ctx.send(f"🔊 تم تعديل الصوت إلى {percentage}%")
+
+@bot.command()
+@commands.check(is_owner)
+async def سرعه(ctx, speed: float):
+    if speed <= 0:
+        await ctx.send("❌ السرعة لازم تكون أكبر من 0.")
+        return
+
+    voice_client = ctx.guild.voice_client
+    if not voice_client or not voice_client.is_playing():
+        await ctx.send("❌ لا يوجد شيء يعمل حالياً لتعديل سرعته.")
+        return
+
+    current_url = saved_songs.get("last_url")
+    if not current_url:
+        await ctx.send("❌ لا يمكن تعديل السرعة حالياً.")
+        return
+
+    voice_client.stop()
+    ffmpeg_opts = {
+        'before_options': f'-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': f'-filter:a "atempo={speed}" -vn'
+    }
+    source = discord.FFmpegPCMAudio(current_url, **ffmpeg_opts)
+    player = discord.PCMVolumeTransformer(source, volume=1.0)
+    voice_client.play(player)
+
+    await ctx.send(f"⚡ تم ضبط السرعة على {speed}x")
+
+@bot.command()
+@commands.check(is_owner)
+async def وقت(ctx, time_str: str):
+    voice_client = ctx.guild.voice_client
+    if not voice_client:
+        await ctx.send("❌ البوت غير متصل بصوت.")
+        return
+
+    current_url = saved_songs.get("last_url")
+    if not current_url:
+        await ctx.send("❌ لا يوجد مقطع لتقديمه.")
+        return
+
+    try:
+        if ":" in time_str:
+            minutes, seconds = map(int, time_str.split(":"))
+            total_seconds = minutes * 60 + seconds
+        else:
+            total_seconds = int(time_str)
+    except:
+        await ctx.send("❌ صيغة الوقت غير صحيحة. استخدم: `!وقت 1:30` أو `!وقت 90`")
+        return
+
+    voice_client.stop()
+    ffmpeg_opts = {
+        'before_options': f'-ss {total_seconds} -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn'
+    }
+    source = discord.FFmpegPCMAudio(current_url, **ffmpeg_opts)
+    player = discord.PCMVolumeTransformer(source, volume=1.0)
+    voice_client.play(player)
+
+    await ctx.send(f"⏩ تم الانتقال إلى الدقيقة: {total_seconds // 60}:{total_seconds % 60:02d}")
 
 # ------------------- رتب تلقائيه ------------------------
 @bot.event
