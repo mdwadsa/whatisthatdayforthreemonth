@@ -129,6 +129,7 @@ async def roulette_error(ctx, error):
 # ------------------- SoundCloud ---------------------
 
 OWNER_ID = 948531215252742184
+OWNER_ID = 1120031605348630568
 SONGS_FILE = "songs.json"
 
 ydl_opts = {
