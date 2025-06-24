@@ -131,7 +131,7 @@ async def roulette_error(ctx, error):
         await ctx.send(f"⏳ انتظر {round(error.retry_after, 1)} ثانية قبل استخدام الروليت مرة أخرى.", delete_after=5)
 
 # ------------------- SoundCloud ---------------------
-OWNER_IDS = [948531215252742184, 1120031605348630568]
+OWNER_ID = 948531215252742184
 SONGS_FILE = "songs.json"
 
 ydl_opts = {
@@ -161,46 +161,7 @@ def save_songs(songs):
 saved_songs = load_songs()
 
 def is_owner(ctx):
-    return ctx.author.id in OWNER_IDS
-
-class MusicControlView(View):
-    def __init__(self, voice_client: discord.VoiceClient):
-        super().__init__(timeout=None)
-        self.voice_client = voice_client
-
-    @discord.ui.button(label="⏸ Pause", style=discord.ButtonStyle.grey)
-    async def pause(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.voice_client.is_playing():
-            self.voice_client.pause()
-            await interaction.response.send_message("⏸️ تم الإيقاف المؤقت.", ephemeral=True)
-
-    @discord.ui.button(label="⏭ Skip", style=discord.ButtonStyle.blurple)
-    async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.voice_client.is_playing():
-            self.voice_client.stop()
-            await interaction.response.send_message("⏭️ تم التخطي.", ephemeral=True)
-
-    @discord.ui.button(label="❤️ Like", style=discord.ButtonStyle.secondary)
-    async def like(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("❤️ تم تسجيل الإعجاب (خاصية وهمية حالياً).", ephemeral=True)
-
-    @discord.ui.button(label="🔁 Loop", style=discord.ButtonStyle.green)
-    async def loop(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("🔁 خاصية التكرار غير مفعلة حالياً.", ephemeral=True)
-
-    @discord.ui.button(label="🔀 Shuffle Queue", style=discord.ButtonStyle.green)
-    async def shuffle(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("🔀 لا يوجد طابور لتبديله حالياً.", ephemeral=True)
-
-    @discord.ui.button(label="📻 Autoplay", style=discord.ButtonStyle.grey)
-    async def autoplay(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("📻 خاصية التشغيل التلقائي غير مفعلة حالياً.", ephemeral=True)
-
-    @discord.ui.button(label="⏹ Stop", style=discord.ButtonStyle.danger)
-    async def stop(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.voice_client.is_playing():
-            self.voice_client.stop()
-            await interaction.response.send_message("⏹️ تم إيقاف التشغيل.", ephemeral=True)
+    return ctx.author.id == OWNER_ID
 
 @bot.command()
 @commands.check(is_owner)
@@ -243,29 +204,18 @@ async def play(ctx, name_or_url):
     save_songs(saved_songs)
 
     duration = info.get("duration", 0)
-    minutes = int(duration // 60)
-    seconds = int(duration % 60)
-
-    embed = discord.Embed(
-        title="Now Playing",
-        description=f"[ {minutes}:{seconds:02d} ] - {info.get('title', 'مقطع صوتي')}",
-        color=discord.Color.purple()
-    )
-    embed.add_field(name="Did you know?", value="Did you know you can create playlists?", inline=False)
-
-    view = MusicControlView(voice_client)
-    await ctx.send(embed=embed, view=view)
+    await ctx.send(f"🎵 جاري تشغيل: {info.get('title', 'مقطع صوتي')}\n⏱️ المدة: {int(duration // 60)}:{int(duration % 60):02d}")
 
     async def progress_bar():
         elapsed = 0
-        message = await ctx.send(f"⏳ الوقت: 0:00 / {minutes}:{seconds:02d}")
+        message = await ctx.send(f"⏳ الوقت: 0:00 / {int(duration // 60)}:{int(duration % 60):02d}")
         while voice_client.is_playing() and elapsed < duration:
             await asyncio.sleep(5)
             elapsed += 5
-            mins = elapsed // 60
-            secs = elapsed % 60
+            minutes = elapsed // 60
+            seconds = elapsed % 60
             try:
-                await message.edit(content=f"⏳ الوقت: {mins}:{secs:02d} / {minutes}:{seconds:02d}")
+                await message.edit(content=f"⏳ الوقت: {minutes}:{seconds:02d} / {int(duration // 60)}:{int(duration % 60):02d}")
             except discord.NotFound:
                 break
 
@@ -379,6 +329,7 @@ async def وقت(ctx, time_str: str):
     voice_client.play(player)
 
     await ctx.send(f"⏩ تم الانتقال إلى الدقيقة: {total_seconds // 60}:{total_seconds % 60:02d}")
+
 # ------------------- رتب تلقائيه ------------------------
 @bot.event
 async def on_member_join(member):
