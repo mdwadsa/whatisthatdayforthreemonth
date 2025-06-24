@@ -16,9 +16,10 @@ intents.members = True
 intents.message_content = True
 intents.voice_states = True
 intents.presences = True  # لمراقبة الحالة
-tree = bot.tree
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+tree = bot.tree
 
 # ملفات لتخزين البيانات
 CODES_FILE = "codes.json"
