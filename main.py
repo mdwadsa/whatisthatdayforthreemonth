@@ -213,8 +213,7 @@ async def play(interaction: discord.Interaction, name_or_url: str):
     save_songs(saved_songs)
 
     duration = info.get("duration", 0)
-    await interaction.followup.send(f"🎵 تم التشغيل: {info.get('title')}
-⏱️ {int(duration // 60)}:{int(duration % 60):02d}")
+    await interaction.followup.send(f"🎵 تم التشغيل: {info.get('title')}\\n⏱️ {int(duration // 60)}:{int(duration % 60):02d}")
 
     async def progress_bar():
         elapsed = 0
