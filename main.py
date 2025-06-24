@@ -16,6 +16,7 @@ intents.members = True
 intents.message_content = True
 intents.voice_states = True
 intents.presences = True  # لمراقبة الحالة
+tree = bot.tree
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -127,7 +128,6 @@ async def roulette_error(ctx, error):
         await ctx.send(f"⏳ انتظر {round(error.retry_after, 1)} ثانية قبل استخدام الروليت مرة أخرى.", delete_after=5)
 
 # ------------------- SoundCloud ---------------------
-
 OWNER_ID = 948531215252742184
 SONGS_FILE = "songs.json"
 
@@ -157,35 +157,47 @@ def save_songs(songs):
 
 saved_songs = load_songs()
 
-def is_owner(ctx):
-    return ctx.author.id == OWNER_ID
+def is_owner(interaction: discord.Interaction) -> bool:
+    return interaction.user.id == OWNER_ID
 
-@bot.command()
-@commands.check(is_owner)
-async def join(ctx, channel_id: int):
+@tree.command(name="join", description="انضمام إلى روم صوتي")
+@app_commands.describe(channel_id="معرف الروم الصوتي")
+async def join(interaction: discord.Interaction, channel_id: int):
+    if not is_owner(interaction): return
     channel = bot.get_channel(channel_id)
     if isinstance(channel, discord.VoiceChannel):
         await channel.connect()
-        await ctx.send(f"✅ انضممت إلى الروم الصوتي: {channel.name}")
+        await interaction.response.send_message(f"✅ انضممت إلى: {channel.name}", ephemeral=True)
     else:
-        await ctx.send("❌ لم أتمكن من العثور على روم صوتي بهذا المعرف.")
+        await interaction.response.send_message("❌ روم صوتي غير موجود", ephemeral=True)
 
-@bot.command()
-@commands.check(is_owner)
-async def play(ctx, name_or_url):
-    voice_client = ctx.guild.voice_client
+@tree.command(name="leave", description="الخروج من الروم الصوتي")
+async def leave(interaction: discord.Interaction):
+    if not is_owner(interaction): return
+    if interaction.guild.voice_client:
+        await interaction.guild.voice_client.disconnect()
+        await interaction.response.send_message("👋 تم الخروج من الروم الصوتي.")
+    else:
+        await interaction.response.send_message("❌ لست متصلاً بأي روم صوتي.")
+
+@tree.command(name="play", description="تشغيل صوت من رابط أو اسم محفوظ")
+@app_commands.describe(name_or_url="رابط أو اسم محفوظ")
+async def play(interaction: discord.Interaction, name_or_url: str):
+    if not is_owner(interaction): return
+
+    await interaction.response.defer()
+    voice_client = interaction.guild.voice_client
     if not voice_client:
-        await ctx.send("❌ يجب أن أكون في روم صوتي أولاً. استخدم !join.")
+        await interaction.followup.send("❌ يجب استخدام /join أولاً.")
         return
 
     url = saved_songs.get(name_or_url, name_or_url)
-
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(url, download=False)
             audio_url = info['url']
         except Exception as e:
-            await ctx.send(f"❌ حدث خطأ أثناء جلب الرابط: {e}")
+            await interaction.followup.send(f"❌ خطأ: {e}")
             return
 
     voice_client.stop()
@@ -201,111 +213,94 @@ async def play(ctx, name_or_url):
     save_songs(saved_songs)
 
     duration = info.get("duration", 0)
-    await ctx.send(f"🎵 جاري تشغيل: {info.get('title', 'مقطع صوتي')}\n⏱️ المدة: {int(duration // 60)}:{int(duration % 60):02d}")
+    await interaction.followup.send(f"🎵 تم التشغيل: {info.get('title')}
+⏱️ {int(duration // 60)}:{int(duration % 60):02d}")
 
     async def progress_bar():
         elapsed = 0
-        message = await ctx.send(f"⏳ الوقت: 0:00 / {int(duration // 60)}:{int(duration % 60):02d}")
+        message = await interaction.followup.send(f"⏳ 0:00 / {int(duration // 60)}:{int(duration % 60):02d}")
         while voice_client.is_playing() and elapsed < duration:
             await asyncio.sleep(5)
             elapsed += 5
-            minutes = elapsed // 60
-            seconds = elapsed % 60
             try:
-                await message.edit(content=f"⏳ الوقت: {minutes}:{seconds:02d} / {int(duration // 60)}:{int(duration % 60):02d}")
+                await message.edit(content=f"⏳ {elapsed//60}:{elapsed%60:02d} / {int(duration // 60)}:{int(duration % 60):02d}")
             except discord.NotFound:
                 break
 
     bot.loop.create_task(progress_bar())
 
-@bot.command()
-@commands.check(is_owner)
-async def stop(ctx):
-    voice_client = ctx.guild.voice_client
-    if voice_client and voice_client.is_playing():
-        voice_client.stop()
-        await ctx.send("⏹️ تم إيقاف التشغيل.")
+@tree.command(name="stop", description="إيقاف التشغيل")
+async def stop(interaction: discord.Interaction):
+    if not is_owner(interaction): return
+    vc = interaction.guild.voice_client
+    if vc and vc.is_playing():
+        vc.stop()
+        await interaction.response.send_message("⏹️ تم الإيقاف.")
     else:
-        await ctx.send("❌ لا يوجد شيء يعمل حالياً.")
+        await interaction.response.send_message("❌ لا يوجد شيء يعمل.")
 
-@bot.command()
-@commands.check(is_owner)
-async def name(ctx, url, name):
+@tree.command(name="name", description="حفظ رابط باسم")
+@app_commands.describe(url="الرابط", name="الاسم المطلوب")
+async def name(interaction: discord.Interaction, url: str, name: str):
+    if not is_owner(interaction): return
     saved_songs[name] = url
     save_songs(saved_songs)
-    await ctx.send(f"✅ تم حفظ الأغنية باسم: `{name}`")
+    await interaction.response.send_message(f"✅ تم حفظ الأغنية باسم: `{name}`")
 
-@bot.command()
-@commands.check(is_owner)
-async def leave(ctx):
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        await ctx.send("👋 تم الخروج من الروم الصوتي.")
-    else:
-        await ctx.send("❌ لست متصلاً بأي روم صوتي.")
-
-@bot.command()
-@commands.check(is_owner)
-async def صوت(ctx, percentage: int):
-    voice_client = ctx.guild.voice_client
-    if not voice_client or not voice_client.is_playing():
-        await ctx.send("❌ لا يوجد شيء يعمل حالياً لتغيير صوته.")
+@tree.command(name="volume", description="تعديل مستوى الصوت")
+@app_commands.describe(percentage="النسبة بين 1 إلى 100")
+async def volume(interaction: discord.Interaction, percentage: int):
+    if not is_owner(interaction): return
+    vc = interaction.guild.voice_client
+    if not vc or not vc.is_playing():
+        await interaction.response.send_message("❌ لا يوجد شيء يعمل حالياً.")
         return
-
-    source = voice_client.source
-    if not isinstance(source, discord.PCMVolumeTransformer):
-        await ctx.send("❌ لا يمكن تعديل الصوت لأن المصدر الحالي لا يدعم ضبط الصوت.")
-        return
-
     if percentage < 1 or percentage > 100:
-        await ctx.send("❌ الرجاء اختيار رقم بين 1 و 100 للصوت.")
+        await interaction.response.send_message("❌ الرجاء اختيار رقم بين 1 و 100.")
         return
+    if isinstance(vc.source, discord.PCMVolumeTransformer):
+        vc.source.volume = percentage / 100
+        await interaction.response.send_message(f"🔊 تم ضبط الصوت إلى {percentage}%")
+    else:
+        await interaction.response.send_message("❌ لا يمكن تعديل الصوت.")
 
-    volume = percentage / 100
-    source.volume = volume
-    await ctx.send(f"🔊 تم تعديل الصوت إلى {percentage}%")
-
-@bot.command()
-@commands.check(is_owner)
-async def سرعه(ctx, speed: float):
+@tree.command(name="speed", description="تغيير سرعة التشغيل")
+@app_commands.describe(speed="السرعة (مثل 1.0 أو 1.5)")
+async def speed(interaction: discord.Interaction, speed: float):
+    if not is_owner(interaction): return
     if speed <= 0:
-        await ctx.send("❌ السرعة لازم تكون أكبر من 0.")
+        await interaction.response.send_message("❌ السرعة يجب أن تكون أكبر من 0.")
         return
-
-    voice_client = ctx.guild.voice_client
-    if not voice_client or not voice_client.is_playing():
-        await ctx.send("❌ لا يوجد شيء يعمل حالياً لتعديل سرعته.")
+    vc = interaction.guild.voice_client
+    if not vc or not vc.is_playing():
+        await interaction.response.send_message("❌ لا يوجد شيء يعمل.")
         return
-
     current_url = saved_songs.get("last_url")
     if not current_url:
-        await ctx.send("❌ لا يمكن تعديل السرعة حالياً.")
+        await interaction.response.send_message("❌ لا يوجد مقطع حالياً.")
         return
-
-    voice_client.stop()
-    ffmpeg_opts = {
+    vc.stop()
+    opts = {
         'before_options': f'-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         'options': f'-filter:a "atempo={speed}" -vn'
     }
-    source = discord.FFmpegPCMAudio(current_url, **ffmpeg_opts)
+    source = discord.FFmpegPCMAudio(current_url, **opts)
     player = discord.PCMVolumeTransformer(source, volume=1.0)
-    voice_client.play(player)
+    vc.play(player)
+    await interaction.response.send_message(f"⚡ تم ضبط السرعة إلى {speed}x")
 
-    await ctx.send(f"⚡ تم ضبط السرعة على {speed}x")
-
-@bot.command()
-@commands.check(is_owner)
-async def وقت(ctx, time_str: str):
-    voice_client = ctx.guild.voice_client
-    if not voice_client:
-        await ctx.send("❌ البوت غير متصل بصوت.")
+@tree.command(name="seek", description="تقديم إلى وقت محدد")
+@app_commands.describe(time_str="الوقت (مثلاً 1:30 أو 90)")
+async def seek(interaction: discord.Interaction, time_str: str):
+    if not is_owner(interaction): return
+    vc = interaction.guild.voice_client
+    if not vc:
+        await interaction.response.send_message("❌ البوت غير متصل.")
         return
-
     current_url = saved_songs.get("last_url")
     if not current_url:
-        await ctx.send("❌ لا يوجد مقطع لتقديمه.")
+        await interaction.response.send_message("❌ لا يوجد مقطع.")
         return
-
     try:
         if ":" in time_str:
             minutes, seconds = map(int, time_str.split(":"))
@@ -313,20 +308,21 @@ async def وقت(ctx, time_str: str):
         else:
             total_seconds = int(time_str)
     except:
-        await ctx.send("❌ صيغة الوقت غير صحيحة. استخدم: `!وقت 1:30` أو `!وقت 90`")
+        await interaction.response.send_message("❌ صيغة الوقت غير صحيحة.")
         return
-
-    voice_client.stop()
-    ffmpeg_opts = {
+    vc.stop()
+    opts = {
         'before_options': f'-ss {total_seconds} -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         'options': '-vn'
     }
-    source = discord.FFmpegPCMAudio(current_url, **ffmpeg_opts)
+    source = discord.FFmpegPCMAudio(current_url, **opts)
     player = discord.PCMVolumeTransformer(source, volume=1.0)
-    voice_client.play(player)
+    vc.play(player)
+    await interaction.response.send_message(f"⏩ تم الانتقال إلى {total_seconds // 60}:{total_seconds % 60:02d}")
 
-    await ctx.send(f"⏩ تم الانتقال إلى الدقيقة: {total_seconds // 60}:{total_seconds % 60:02d}")
-
+@bot.event
+async def on_ready():
+    await tree.sync()
 # ------------------- رتب تلقائيه ------------------------
 @bot.event
 async def on_member_join(member):
