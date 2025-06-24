@@ -159,21 +159,32 @@ def save_songs(songs):
 
 saved_songs = load_songs()
 
+class MyClient(discord.Client):
+    def __init__(self):
+        super().__init__(intents=discord.Intents.default())
+        self.tree = app_commands.CommandTree(self)
+
+    async def on_ready(self):
+        await self.tree.sync()
+        print(f"✅ Logged in as {self.user}")
+
+client = MyClient()
+
 def is_owner(interaction: discord.Interaction) -> bool:
     return interaction.user.id == OWNER_ID
 
-@tree.command(name="join", description="انضمام إلى روم صوتي")
+@client.tree.command(name="join", description="انضمام إلى روم صوتي")
 @app_commands.describe(channel_id="معرف الروم الصوتي")
 async def join(interaction: discord.Interaction, channel_id: int):
     if not is_owner(interaction): return
-    channel = bot.get_channel(channel_id)
+    channel = interaction.client.get_channel(channel_id)
     if isinstance(channel, discord.VoiceChannel):
         await channel.connect()
         await interaction.response.send_message(f"✅ انضممت إلى: {channel.name}", ephemeral=True)
     else:
         await interaction.response.send_message("❌ روم صوتي غير موجود", ephemeral=True)
 
-@tree.command(name="leave", description="الخروج من الروم الصوتي")
+@client.tree.command(name="leave", description="الخروج من الروم الصوتي")
 async def leave(interaction: discord.Interaction):
     if not is_owner(interaction): return
     if interaction.guild.voice_client:
@@ -182,11 +193,10 @@ async def leave(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ لست متصلاً بأي روم صوتي.")
 
-@tree.command(name="play", description="تشغيل صوت من رابط أو اسم محفوظ")
+@client.tree.command(name="play", description="تشغيل صوت من رابط أو اسم محفوظ")
 @app_commands.describe(name_or_url="رابط أو اسم محفوظ")
 async def play(interaction: discord.Interaction, name_or_url: str):
     if not is_owner(interaction): return
-
     await interaction.response.defer()
     voice_client = interaction.guild.voice_client
     if not voice_client:
@@ -215,7 +225,7 @@ async def play(interaction: discord.Interaction, name_or_url: str):
     save_songs(saved_songs)
 
     duration = info.get("duration", 0)
-    await interaction.followup.send(f"🎵 تم التشغيل: {info.get('title')}\\n⏱️ {int(duration // 60)}:{int(duration % 60):02d}")
+    await interaction.followup.send(f"🎵 تم التشغيل: {info.get('title')}\n⏱️ {int(duration // 60)}:{int(duration % 60):02d}")
 
     async def progress_bar():
         elapsed = 0
@@ -228,9 +238,9 @@ async def play(interaction: discord.Interaction, name_or_url: str):
             except discord.NotFound:
                 break
 
-    bot.loop.create_task(progress_bar())
+    client.loop.create_task(progress_bar())
 
-@tree.command(name="stop", description="إيقاف التشغيل")
+@client.tree.command(name="stop", description="إيقاف التشغيل")
 async def stop(interaction: discord.Interaction):
     if not is_owner(interaction): return
     vc = interaction.guild.voice_client
@@ -240,7 +250,7 @@ async def stop(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ لا يوجد شيء يعمل.")
 
-@tree.command(name="name", description="حفظ رابط باسم")
+@client.tree.command(name="name", description="حفظ رابط باسم")
 @app_commands.describe(url="الرابط", name="الاسم المطلوب")
 async def name(interaction: discord.Interaction, url: str, name: str):
     if not is_owner(interaction): return
@@ -248,7 +258,7 @@ async def name(interaction: discord.Interaction, url: str, name: str):
     save_songs(saved_songs)
     await interaction.response.send_message(f"✅ تم حفظ الأغنية باسم: `{name}`")
 
-@tree.command(name="volume", description="تعديل مستوى الصوت")
+@client.tree.command(name="volume", description="تعديل مستوى الصوت")
 @app_commands.describe(percentage="النسبة بين 1 إلى 100")
 async def volume(interaction: discord.Interaction, percentage: int):
     if not is_owner(interaction): return
@@ -265,7 +275,7 @@ async def volume(interaction: discord.Interaction, percentage: int):
     else:
         await interaction.response.send_message("❌ لا يمكن تعديل الصوت.")
 
-@tree.command(name="speed", description="تغيير سرعة التشغيل")
+@client.tree.command(name="speed", description="تغيير سرعة التشغيل")
 @app_commands.describe(speed="السرعة (مثل 1.0 أو 1.5)")
 async def speed(interaction: discord.Interaction, speed: float):
     if not is_owner(interaction): return
@@ -290,7 +300,7 @@ async def speed(interaction: discord.Interaction, speed: float):
     vc.play(player)
     await interaction.response.send_message(f"⚡ تم ضبط السرعة إلى {speed}x")
 
-@tree.command(name="seek", description="تقديم إلى وقت محدد")
+@client.tree.command(name="seek", description="تقديم إلى وقت محدد")
 @app_commands.describe(time_str="الوقت (مثلاً 1:30 أو 90)")
 async def seek(interaction: discord.Interaction, time_str: str):
     if not is_owner(interaction): return
@@ -320,10 +330,6 @@ async def seek(interaction: discord.Interaction, time_str: str):
     player = discord.PCMVolumeTransformer(source, volume=1.0)
     vc.play(player)
     await interaction.response.send_message(f"⏩ تم الانتقال إلى {total_seconds // 60}:{total_seconds % 60:02d}")
-
-@bot.event
-async def on_ready():
-    await tree.sync()
 # ------------------- رتب تلقائيه ------------------------
 @bot.event
 async def on_member_join(member):
