@@ -42,7 +42,17 @@ async def on_ready():
     print(f"✅ Logged in as {bot.user}")
     online_ping_task.start()
 # ----------------- Bank ----------------------------
+# إعدادات
+OWNER_ID = 948531215252742184
 DATA_FILE = "bank_data.json"
+COMMAND_PREFIX = "!"
+
+# إعداد البوت
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents)
+
+# ======= وظائف المساعدة =======
 
 def load_data():
     if not os.path.exists(DATA_FILE):
@@ -59,87 +69,79 @@ def ensure_account(data, user_id):
     if str(user_id) not in data:
         data[str(user_id)] = {"balance": 0}
 
-intents = discord.Intents.default()
-bot = commands.Bot(command_prefix="!", intents=intents)
+# ======= أوامر البنك =======
 
-class Bank(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+@bot.command(name="رصيد")
+async def balance(ctx):
+    data = load_data()
+    user_id = ctx.author.id
+    ensure_account(data, user_id)
+    balance = data[str(user_id)]["balance"]
+    await ctx.send(f"💰 رصيدك الحالي: {balance} نقطة")
 
-    @app_commands.command(name="رصيد", description="عرض رصيدك في البنك")
-    async def balance(self, interaction: discord.Interaction):
-        data = load_data()
-        user_id = interaction.user.id
-        ensure_account(data, user_id)
-        balance = data[str(user_id)]["balance"]
-        await interaction.response.send_message(f"رصيدك الحالي: 💰 {balance} نقطة", ephemeral=True)
+@bot.command(name="ايداع")
+async def deposit(ctx, amount: int):
+    if amount <= 0:
+        return await ctx.send("❌ لا يمكنك إيداع مبلغ أقل من أو يساوي صفر.")
+    data = load_data()
+    user_id = ctx.author.id
+    ensure_account(data, user_id)
+    data[str(user_id)]["balance"] += amount
+    save_data(data)
+    await ctx.send(f"✅ تم إيداع {amount} نقطة في حسابك.")
 
-    @app_commands.command(name="ايداع", description="إيداع مبلغ في حساب البنك")
-    @app_commands.describe(المبلغ="المبلغ الذي تريد إيداعه (رقم صحيح)")
-    async def deposit(self, interaction: discord.Interaction, المبلغ: int):
-        if المبلغ <= 0:
-            await interaction.response.send_message("لا يمكنك إيداع مبلغ صفر أو أقل.", ephemeral=True)
-            return
-        data = load_data()
-        user_id = interaction.user.id
-        ensure_account(data, user_id)
-        data[str(user_id)]["balance"] += المبلغ
-        save_data(data)
-        await interaction.response.send_message(f"تم إيداع {المبلغ} نقطة في حسابك.", ephemeral=True)
+@bot.command(name="سحب")
+async def withdraw(ctx, amount: int):
+    if amount <= 0:
+        return await ctx.send("❌ لا يمكنك سحب مبلغ أقل من أو يساوي صفر.")
+    data = load_data()
+    user_id = ctx.author.id
+    ensure_account(data, user_id)
+    if data[str(user_id)]["balance"] < amount:
+        return await ctx.send("❌ رصيدك لا يكفي.")
+    data[str(user_id)]["balance"] -= amount
+    save_data(data)
+    await ctx.send(f"✅ تم سحب {amount} نقطة من حسابك.")
 
-    @app_commands.command(name="سحب", description="سحب مبلغ من حساب البنك")
-    @app_commands.describe(المبلغ="المبلغ الذي تريد سحبه (رقم صحيح)")
-    async def withdraw(self, interaction: discord.Interaction, المبلغ: int):
-        if المبلغ <= 0:
-            await interaction.response.send_message("لا يمكنك سحب مبلغ صفر أو أقل.", ephemeral=True)
-            return
-        data = load_data()
-        user_id = interaction.user.id
-        ensure_account(data, user_id)
-        balance = data[str(user_id)]["balance"]
-        if المبلغ > balance:
-            await interaction.response.send_message("رصيدك لا يكفي للسحب هذا المبلغ.", ephemeral=True)
-            return
-        data[str(user_id)]["balance"] -= المبلغ
-        save_data(data)
-        await interaction.response.send_message(f"تم سحب {المبلغ} نقطة من حسابك.", ephemeral=True)
+@bot.command(name="تحويل")
+async def transfer(ctx, member: discord.Member, amount: int):
+    if member.id == ctx.author.id:
+        return await ctx.send("❌ لا يمكنك تحويل النقاط لنفسك.")
+    if amount <= 0:
+        return await ctx.send("❌ المبلغ يجب أن يكون أكبر من صفر.")
+    data = load_data()
+    sender_id = ctx.author.id
+    receiver_id = member.id
+    ensure_account(data, sender_id)
+    ensure_account(data, receiver_id)
+    if data[str(sender_id)]["balance"] < amount:
+        return await ctx.send("❌ رصيدك لا يكفي للتحويل.")
+    data[str(sender_id)]["balance"] -= amount
+    data[str(receiver_id)]["balance"] += amount
+    save_data(data)
+    await ctx.send(f"✅ تم تحويل {amount} نقطة إلى {member.mention}.")
 
-    @app_commands.command(name="تحويل", description="تحويل مبلغ لمستخدم آخر")
-    @app_commands.describe(المستخدم="المستخدم الذي تريد التحويل له", المبلغ="المبلغ للتحويل")
-    async def transfer(self, interaction: discord.Interaction, المستخدم: discord.User, المبلغ: int):
-        if المستخدم.id == interaction.user.id:
-            await interaction.response.send_message("لا يمكنك تحويل الأموال لنفسك.", ephemeral=True)
-            return
-        if المبلغ <= 0:
-            await interaction.response.send_message("المبلغ يجب أن يكون أكبر من صفر.", ephemeral=True)
-            return
-        data = load_data()
-        sender_id = interaction.user.id
-        receiver_id = المستخدم.id
-        ensure_account(data, sender_id)
-        ensure_account(data, receiver_id)
+@bot.command(name="بنك")
+async def bank_help(ctx):
+    embed = discord.Embed(title="🏦 أوامر نظام البنك", color=0x00bfa5)
+    embed.add_field(name="!رصيد", value="عرض رصيدك الحالي.", inline=False)
+    embed.add_field(name="!ايداع [مبلغ]", value="إيداع مبلغ في حسابك.", inline=False)
+    embed.add_field(name="!سحب [مبلغ]", value="سحب مبلغ من حسابك.", inline=False)
+    embed.add_field(name="!تحويل [@مستخدم] [مبلغ]", value="تحويل مبلغ لشخص آخر.", inline=False)
+    embed.add_field(name="!كم_ثروتك [@مستخدم] [مبلغ]", value="(للمالك فقط) إضافة مبلغ لرصيد أي شخص.", inline=False)
+    await ctx.send(embed=embed)
 
-        if data[str(sender_id)]["balance"] < المبلغ:
-            await interaction.response.send_message("رصيدك لا يكفي لتحويل هذا المبلغ.", ephemeral=True)
-            return
-
-        data[str(sender_id)]["balance"] -= المبلغ
-        data[str(receiver_id)]["balance"] += المبلغ
-        save_data(data)
-
-        await interaction.response.send_message(f"تم تحويل {المبلغ} نقطة إلى {المستخدم.mention}.", ephemeral=True)
-
-bot.add_cog(Bank(bot))
-
-@bot.event
-async def on_ready():
-    print(f"تم تسجيل الدخول كبوت: {bot.user} (ID: {bot.user.id})")
-    try:
-        synced = await bot.tree.sync()
-        print(f"تم مزامنة {len(synced)} أوامر.")
-    except Exception as e:
-        print(f"خطأ في مزامنة الأوامر: {e}")
-
+@bot.command(name="كم_ثروتك")
+async def add_balance(ctx, member: discord.Member, amount: int):
+    if ctx.author.id != OWNER_ID:
+        return await ctx.send("❌ هذا الأمر خاص بالمالك فقط.")
+    if amount <= 0:
+        return await ctx.send("❌ المبلغ يجب أن يكون أكبر من صفر.")
+    data = load_data()
+    ensure_account(data, member.id)
+    data[str(member.id)]["balance"] += amount
+    save_data(data)
+    await ctx.send(f"💸 تم إضافة {amount} نقطة إلى رصيد {member.mention} بنجاح.")
 # ------------------ البوت يسولف -----------------------
 @bot.event
 async def on_ready():
