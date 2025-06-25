@@ -41,6 +41,105 @@ def save_json(filename, data):
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
     online_ping_task.start()
+# ----------------- Bank ----------------------------
+DATA_FILE = "bank_data.json"
+
+def load_data():
+    if not os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "w") as f:
+            json.dump({}, f)
+    with open(DATA_FILE, "r") as f:
+        return json.load(f)
+
+def save_data(data):
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+def ensure_account(data, user_id):
+    if str(user_id) not in data:
+        data[str(user_id)] = {"balance": 0}
+
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+class Bank(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @app_commands.command(name="رصيد", description="عرض رصيدك في البنك")
+    async def balance(self, interaction: discord.Interaction):
+        data = load_data()
+        user_id = interaction.user.id
+        ensure_account(data, user_id)
+        balance = data[str(user_id)]["balance"]
+        await interaction.response.send_message(f"رصيدك الحالي: 💰 {balance} نقطة", ephemeral=True)
+
+    @app_commands.command(name="ايداع", description="إيداع مبلغ في حساب البنك")
+    @app_commands.describe(المبلغ="المبلغ الذي تريد إيداعه (رقم صحيح)")
+    async def deposit(self, interaction: discord.Interaction, المبلغ: int):
+        if المبلغ <= 0:
+            await interaction.response.send_message("لا يمكنك إيداع مبلغ صفر أو أقل.", ephemeral=True)
+            return
+        data = load_data()
+        user_id = interaction.user.id
+        ensure_account(data, user_id)
+        data[str(user_id)]["balance"] += المبلغ
+        save_data(data)
+        await interaction.response.send_message(f"تم إيداع {المبلغ} نقطة في حسابك.", ephemeral=True)
+
+    @app_commands.command(name="سحب", description="سحب مبلغ من حساب البنك")
+    @app_commands.describe(المبلغ="المبلغ الذي تريد سحبه (رقم صحيح)")
+    async def withdraw(self, interaction: discord.Interaction, المبلغ: int):
+        if المبلغ <= 0:
+            await interaction.response.send_message("لا يمكنك سحب مبلغ صفر أو أقل.", ephemeral=True)
+            return
+        data = load_data()
+        user_id = interaction.user.id
+        ensure_account(data, user_id)
+        balance = data[str(user_id)]["balance"]
+        if المبلغ > balance:
+            await interaction.response.send_message("رصيدك لا يكفي للسحب هذا المبلغ.", ephemeral=True)
+            return
+        data[str(user_id)]["balance"] -= المبلغ
+        save_data(data)
+        await interaction.response.send_message(f"تم سحب {المبلغ} نقطة من حسابك.", ephemeral=True)
+
+    @app_commands.command(name="تحويل", description="تحويل مبلغ لمستخدم آخر")
+    @app_commands.describe(المستخدم="المستخدم الذي تريد التحويل له", المبلغ="المبلغ للتحويل")
+    async def transfer(self, interaction: discord.Interaction, المستخدم: discord.User, المبلغ: int):
+        if المستخدم.id == interaction.user.id:
+            await interaction.response.send_message("لا يمكنك تحويل الأموال لنفسك.", ephemeral=True)
+            return
+        if المبلغ <= 0:
+            await interaction.response.send_message("المبلغ يجب أن يكون أكبر من صفر.", ephemeral=True)
+            return
+        data = load_data()
+        sender_id = interaction.user.id
+        receiver_id = المستخدم.id
+        ensure_account(data, sender_id)
+        ensure_account(data, receiver_id)
+
+        if data[str(sender_id)]["balance"] < المبلغ:
+            await interaction.response.send_message("رصيدك لا يكفي لتحويل هذا المبلغ.", ephemeral=True)
+            return
+
+        data[str(sender_id)]["balance"] -= المبلغ
+        data[str(receiver_id)]["balance"] += المبلغ
+        save_data(data)
+
+        await interaction.response.send_message(f"تم تحويل {المبلغ} نقطة إلى {المستخدم.mention}.", ephemeral=True)
+
+bot.add_cog(Bank(bot))
+
+@bot.event
+async def on_ready():
+    print(f"تم تسجيل الدخول كبوت: {bot.user} (ID: {bot.user.id})")
+    try:
+        synced = await bot.tree.sync()
+        print(f"تم مزامنة {len(synced)} أوامر.")
+    except Exception as e:
+        print(f"خطأ في مزامنة الأوامر: {e}")
+
 # ------------------ البوت يسولف -----------------------
 @bot.event
 async def on_ready():
