@@ -510,7 +510,7 @@ async def all_dm(ctx, *, message):
 # -------------------- نظام تسجيل الدخول والخروج ------------------
 @bot.command(name="login")
 async def login(ctx):
-    if not any(role.id == 1384415026323918849 for role in ctx.author.roles):
+    if not any(role.id == 1413017853338189895 for role in ctx.author.roles):
         await ctx.send("❌ ليس لديك الصلاحية لاستخدام هذا الأمر.")
         return
 
@@ -531,7 +531,7 @@ async def login(ctx):
 
 @bot.command(name="logout")
 async def logout(ctx):
-    if not any(role.id == 1384415026323918849 for role in ctx.author.roles):
+    if not any(role.id == 1413017853338189895 for role in ctx.author.roles):
         await ctx.send("❌ ليس لديك الصلاحية لاستخدام هذا الأمر.")
         return
 
@@ -634,8 +634,8 @@ async def redeem(ctx, code: str):
 from discord.ui import View, Button, Modal, TextInput
 
 TICKET_CATEGORY_ID = None  # ضع هنا اي دي الفئة (category) التي تريد انشاء التكتات داخلها إذا كانت موجودة
-TICKET_LOG_CHANNEL_ID = 1375074073226383482
-STAFF_ROLE_ID = 1384415026323918849
+TICKET_LOG_CHANNEL_ID = 1413806976491589812
+STAFF_ROLE_ID = 1413807038424678452
 
 TICKET_RULES_TEXT = (
     "**قوانين التكت:**\n"
@@ -781,7 +781,7 @@ async def setup_ticket(ctx):
     await ctx.send(embed=embed, view=view)
 
 # -------------------- أمر !areyouhere? لتحديث روم الحالة --------------------
-STATUS_CHANNEL_ID = 1375073424300314664
+STATUS_CHANNEL_ID = 1413807277181501491
 
 @bot.command(name="areyouhere?")
 async def areyouhere(ctx):
